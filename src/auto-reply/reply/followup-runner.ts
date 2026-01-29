@@ -137,9 +137,13 @@ export function createFollowupRunner(params: {
           run: (provider, model) => {
             const authProfileId =
               provider === queued.run.provider ? queued.run.authProfileId : undefined;
+            const agentId = resolveAgentIdFromSessionKey(queued.run.sessionKey);
+            const agentConfig = queued.run.config?.agents?.list?.find((a) => a.id === agentId);
             return runEmbeddedPiAgent({
               sessionId: queued.run.sessionId,
               sessionKey: queued.run.sessionKey,
+              agentId,
+              agentName: agentConfig?.name,
               messageProvider: queued.run.messageProvider,
               agentAccountId: queued.run.agentAccountId,
               messageTo: queued.originatingTo,

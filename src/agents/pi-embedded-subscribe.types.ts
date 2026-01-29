@@ -8,6 +8,9 @@ export type ToolResultFormat = "markdown" | "plain";
 export type SubscribeEmbeddedPiSessionParams = {
   session: AgentSession;
   runId: string;
+  agentId?: string; // e.g., "main", "research", "code-review"
+  agentName?: string; // Human-readable name from agent config
+  spawnedBy?: string | null; // Parent session key for sub-agents
   verboseLevel?: VerboseLevel;
   reasoningMode?: ReasoningLevel;
   toolResultFormat?: ToolResultFormat;

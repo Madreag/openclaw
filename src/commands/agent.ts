@@ -407,9 +407,13 @@ export async function agentCommand(
           }
           const authProfileId =
             providerOverride === provider ? sessionEntry?.authProfileOverride : undefined;
+          const agentId = resolveAgentIdFromSessionKey(sessionKey);
+          const agentConfig = cfg?.agents?.list?.find((a) => a.id === agentId);
           return runEmbeddedPiAgent({
             sessionId,
             sessionKey,
+            agentId,
+            agentName: agentConfig?.name,
             messageChannel,
             agentAccountId: runContext.accountId,
             messageTo: opts.replyTo ?? opts.to,

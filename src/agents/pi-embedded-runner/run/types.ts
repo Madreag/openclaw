@@ -18,6 +18,8 @@ type ModelRegistry = ReturnType<typeof discoverModels>;
 export type EmbeddedRunAttemptParams = {
   sessionId: string;
   sessionKey?: string;
+  agentId?: string; // e.g., "main", "research", "code-review"
+  agentName?: string; // Human-readable name from agent config
   messageChannel?: string;
   messageProvider?: string;
   agentAccountId?: string;

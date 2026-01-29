@@ -3,6 +3,7 @@ import type { AssistantMessage } from "@mariozechner/pi-ai";
 
 import { parseReplyDirectives } from "../auto-reply/reply/reply-directives.js";
 import { emitAgentEvent } from "../infra/agent-events.js";
+import { normalizeUsage } from "./usage.js";
 import {
   isMessagingToolDuplicateNormalized,
   normalizeTextForComparison,
@@ -164,6 +165,18 @@ export function handleMessageEnd(
 
   const assistantMessage = msg as AssistantMessage;
   promoteThinkingTagsToBlocks(assistantMessage);
+
+  // Accumulate usage from this message
+  const rawUsage = (assistantMessage as unknown as { usage?: Record<string, unknown> }).usage;
+  const msgUsage = normalizeUsage(rawUsage);
+  if (msgUsage) {
+    const acc = ctx.state.accumulatedUsage ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+    acc.input = (acc.input ?? 0) + (msgUsage.input ?? 0);
+    acc.output = (acc.output ?? 0) + (msgUsage.output ?? 0);
+    acc.cacheRead = (acc.cacheRead ?? 0) + (msgUsage.cacheRead ?? 0);
+    acc.cacheWrite = (acc.cacheWrite ?? 0) + (msgUsage.cacheWrite ?? 0);
+    ctx.state.accumulatedUsage = acc;
+  }
 
   const rawText = extractAssistantText(assistantMessage);
   appendRawStream({

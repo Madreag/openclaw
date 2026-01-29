@@ -12,6 +12,9 @@ export function handleAgentStart(ctx: EmbeddedPiSubscribeContext) {
     data: {
       phase: "start",
       startedAt: Date.now(),
+      agentId: ctx.params.agentId,
+      agentName: ctx.params.agentName,
+      spawnedBy: ctx.params.spawnedBy,
     },
   });
   void ctx.params.onAgentEvent?.({
@@ -61,12 +64,26 @@ export function handleAutoCompactionEnd(
 
 export function handleAgentEnd(ctx: EmbeddedPiSubscribeContext) {
   ctx.log.debug(`embedded run agent end: runId=${ctx.params.runId}`);
+
+  // Build usage summary from accumulated usage
+  const usage = ctx.state.accumulatedUsage;
+  const usageSummary = usage
+    ? {
+        inputTokens: usage.input ?? 0,
+        outputTokens: usage.output ?? 0,
+        totalTokens: (usage.input ?? 0) + (usage.output ?? 0),
+        cacheReadTokens: usage.cacheRead,
+        cacheWriteTokens: usage.cacheWrite,
+      }
+    : undefined;
+
   emitAgentEvent({
     runId: ctx.params.runId,
     stream: "lifecycle",
     data: {
       phase: "end",
       endedAt: Date.now(),
+      usage: usageSummary,
     },
   });
   void ctx.params.onAgentEvent?.({
