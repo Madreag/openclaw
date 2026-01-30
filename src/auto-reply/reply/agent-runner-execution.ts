@@ -158,6 +158,11 @@ export async function runAgentTurnWithFallback(params: {
             const cliAgentConfig = params.followupRun.run.config?.agents?.list?.find(
               (a) => a.id === cliAgentId,
             );
+            // Truncate triggerMessage for dashboard events (keep it reasonable)
+            const triggerMessage =
+              params.commandBody.length > 500
+                ? params.commandBody.slice(0, 500) + "..."
+                : params.commandBody;
             emitAgentEvent({
               runId,
               stream: "lifecycle",
@@ -167,6 +172,14 @@ export async function runAgentTurnWithFallback(params: {
                 agentId: cliAgentId,
                 agentName: cliAgentConfig?.name,
                 spawnedBy: params.getActiveSessionEntry()?.spawnedBy,
+                // Dashboard context fields
+                triggerMessage,
+                channel: params.sessionCtx.Provider?.trim().toLowerCase() || undefined,
+                channelName:
+                  params.sessionCtx.GroupChannel?.trim() ||
+                  params.sessionCtx.GroupSubject?.trim() ||
+                  undefined,
+                userName: params.sessionCtx.SenderName?.trim() || undefined,
               },
             });
             const cliSessionId = getCliSessionId(params.getActiveSessionEntry(), provider);

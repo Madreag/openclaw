@@ -15,6 +15,12 @@ export function handleAgentStart(ctx: EmbeddedPiSubscribeContext) {
       agentId: ctx.params.agentId,
       agentName: ctx.params.agentName,
       spawnedBy: ctx.params.spawnedBy,
+      // Dashboard context fields
+      triggerMessage: ctx.params.triggerMessage,
+      label: ctx.params.label,
+      channel: ctx.params.channel,
+      channelName: ctx.params.channelName,
+      userName: ctx.params.userName,
     },
   });
   void ctx.params.onAgentEvent?.({

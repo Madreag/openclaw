@@ -600,6 +600,12 @@ export async function runEmbeddedAttempt(
         agentId: params.agentId,
         agentName: params.agentName,
         spawnedBy: params.spawnedBy,
+        // Dashboard context fields
+        triggerMessage: params.triggerMessage,
+        label: params.label,
+        channel: params.messageChannel || params.messageProvider,
+        channelName: params.channelName,
+        userName: params.senderName || params.senderUsername || undefined,
         verboseLevel: params.verboseLevel,
         reasoningMode: params.reasoningLevel ?? "off",
         toolResultFormat: params.toolResultFormat,
