@@ -1,6 +1,8 @@
 import { stripHeartbeatToken } from "../heartbeat.js";
 import { HEARTBEAT_TOKEN, isSilentReplyText, SILENT_REPLY_TOKEN } from "../tokens.js";
 import type { ReplyPayload } from "../types.js";
+
+const A2A_CONTROL_TOKENS = ["REPLY_SKIP", "ANNOUNCE_SKIP"];
 import { sanitizeUserFacingText } from "../../agents/pi-embedded-helpers.js";
 import {
   resolveResponsePrefixTemplate,
@@ -37,6 +39,13 @@ export function normalizeReplyPayload(
   const silentToken = opts.silentToken ?? SILENT_REPLY_TOKEN;
   let text = payload.text ?? undefined;
   if (text && isSilentReplyText(text, silentToken)) {
+    if (!hasMedia && !hasChannelData) {
+      opts.onSkip?.("silent");
+      return null;
+    }
+    text = "";
+  }
+  if (text && A2A_CONTROL_TOKENS.includes(text.trim())) {
     if (!hasMedia && !hasChannelData) {
       opts.onSkip?.("silent");
       return null;
