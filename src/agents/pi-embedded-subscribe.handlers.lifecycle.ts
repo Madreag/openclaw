@@ -61,12 +61,20 @@ export function handleAutoCompactionEnd(
 
 export function handleAgentEnd(ctx: EmbeddedPiSubscribeContext) {
   ctx.log.debug(`embedded run agent end: runId=${ctx.params.runId}`);
+
+  // Build response preview from assistant texts (first 200 chars)
+  const responsePreview =
+    ctx.state.assistantTexts.length > 0
+      ? ctx.state.assistantTexts.join("\n").slice(0, 200)
+      : undefined;
+
   emitAgentEvent({
     runId: ctx.params.runId,
     stream: "lifecycle",
     data: {
       phase: "end",
       endedAt: Date.now(),
+      responsePreview,
     },
   });
   void ctx.params.onAgentEvent?.({
