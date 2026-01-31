@@ -134,6 +134,7 @@ Add these to your bot's OAuth2 URL or configure in Discord Developer Portal.
 | `ttsVoice` | string | `"nova"` | Voice ID for TTS |
 | `vadSensitivity` | string | `"medium"` | `"low"`, `"medium"`, or `"high"` |
 | `bargeIn` | boolean | `true` | Stop speaking when user talks |
+| `responseChunking` | boolean | `true` | Split response into sentences for lower perceived latency |
 | `allowedUsers` | string[] | `[]` | User IDs allowed (empty = all) |
 | `silenceThresholdMs` | number | `1500` | Silence before processing (ms) |
 | `maxRecordingMs` | number | `30000` | Max recording length (ms) |

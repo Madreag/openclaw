@@ -17,6 +17,7 @@ export interface DiscordVoiceConfig {
   ttsVoice: string;
   vadSensitivity: "low" | "medium" | "high";
   bargeIn: boolean;       // Stop speaking when user starts talking
+  responseChunking: boolean;  // Split response into sentences for lower perceived latency
   allowedUsers: string[];
   silenceThresholdMs: number;
   minAudioMs: number;
@@ -59,11 +60,18 @@ export const DEFAULT_CONFIG: DiscordVoiceConfig = {
   ttsVoice: "nova",
   vadSensitivity: "medium",
   bargeIn: true,            // Enable barge-in by default
+  responseChunking: true,   // Enable response chunking for lower perceived latency
   allowedUsers: [],
   silenceThresholdMs: 500, // 500ms - faster response after speech ends
   minAudioMs: 300,          // 300ms minimum - filter very short noise
   maxRecordingMs: 30000,
   heartbeatIntervalMs: 30000,
+  // Wake word settings
+  wakeWordEnabled: false,   // Disabled by default - responds to all speech
+  // wakeWord: undefined    // e.g. "hey veronica"
+  // wakeWordAliases: undefined  // e.g. ["hey veronica", "hey veronika"]
+  alwaysListenMs: 30000,    // 30 seconds of always-listen after wake word
+  endPhrases: ["goodbye", "that's all", "bye", "bye bye", "see you", "later"],
   // model: undefined - uses system default, recommend "anthropic/claude-3-5-haiku-latest" for speed
   // thinkLevel: undefined - defaults to "off" for voice (fastest)
 };
@@ -85,6 +93,7 @@ export function parseConfig(raw: unknown): DiscordVoiceConfig {
       ? (obj.vadSensitivity as "low" | "medium" | "high")
       : DEFAULT_CONFIG.vadSensitivity,
     bargeIn: typeof obj.bargeIn === "boolean" ? obj.bargeIn : DEFAULT_CONFIG.bargeIn,
+    responseChunking: typeof obj.responseChunking === "boolean" ? obj.responseChunking : DEFAULT_CONFIG.responseChunking,
     allowedUsers: Array.isArray(obj.allowedUsers)
       ? obj.allowedUsers.filter((u): u is string => typeof u === "string")
       : [],
@@ -108,6 +117,29 @@ export function parseConfig(raw: unknown): DiscordVoiceConfig {
       typeof obj.heartbeatIntervalMs === "number"
         ? obj.heartbeatIntervalMs
         : DEFAULT_CONFIG.heartbeatIntervalMs,
+    // Wake word settings
+    wakeWordEnabled:
+      typeof obj.wakeWordEnabled === "boolean"
+        ? obj.wakeWordEnabled
+        : DEFAULT_CONFIG.wakeWordEnabled,
+    wakeWord:
+      typeof obj.wakeWord === "string" && obj.wakeWord.trim()
+        ? obj.wakeWord.trim().toLowerCase()
+        : undefined,
+    wakeWordAliases: Array.isArray(obj.wakeWordAliases)
+      ? obj.wakeWordAliases
+          .filter((w): w is string => typeof w === "string")
+          .map((w) => w.trim().toLowerCase())
+      : undefined,
+    alwaysListenMs:
+      typeof obj.alwaysListenMs === "number"
+        ? obj.alwaysListenMs
+        : DEFAULT_CONFIG.alwaysListenMs,
+    endPhrases: Array.isArray(obj.endPhrases)
+      ? obj.endPhrases
+          .filter((p): p is string => typeof p === "string")
+          .map((p) => p.trim().toLowerCase())
+      : DEFAULT_CONFIG.endPhrases,
     model: typeof obj.model === "string" ? obj.model : undefined,
     thinkLevel: typeof obj.thinkLevel === "string" ? obj.thinkLevel : undefined,
     openai: obj.openai && typeof obj.openai === "object"

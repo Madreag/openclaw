@@ -36,6 +36,61 @@ import type { DiscordVoiceConfig } from "./config.js";
 import { getVadThreshold } from "./config.js";
 
 /**
+ * Split text into sentence chunks for lower perceived TTS latency.
+ * Returns chunks at sentence boundaries (. ! ?) so TTS can start
+ * playing the first sentence while subsequent ones are synthesized.
+ */
+function chunkBySentence(text: string): string[] {
+  // Match sentences ending with . ! ? (including trailing quotes/parens)
+  // Handle common abbreviations to avoid false splits
+  const abbreviations = /(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|vs|etc|i\.e|e\.g)\.\s*/gi;
+  const protectedText = text.replace(abbreviations, (match) => match.replace('.', '\u0000'));
+  
+  // Split on sentence boundaries
+  const matches = protectedText.match(/[^.!?]+[.!?]+["'\)]*\s*/g);
+  
+  if (!matches || matches.length === 0) {
+    return [text.trim()].filter(Boolean);
+  }
+  
+  // Restore protected periods and clean up
+  return matches
+    .map(chunk => chunk.replace(/\u0000/g, '.').trim())
+    .filter(chunk => chunk.length > 0);
+}
+
+/**
+ * Merge very short chunks with their neighbors for better TTS flow.
+ * Very short sentences sound choppy when synthesized separately.
+ */
+function mergeShortChunks(chunks: string[], minLength = 30): string[] {
+  if (chunks.length <= 1) return chunks;
+  
+  const merged: string[] = [];
+  let buffer = '';
+  
+  for (const chunk of chunks) {
+    if (buffer.length === 0) {
+      buffer = chunk;
+    } else if (buffer.length < minLength) {
+      // Buffer is too short, append this chunk
+      buffer = buffer + ' ' + chunk;
+    } else {
+      // Buffer is long enough, push it and start new
+      merged.push(buffer);
+      buffer = chunk;
+    }
+  }
+  
+  // Don't forget the last buffer
+  if (buffer.length > 0) {
+    merged.push(buffer);
+  }
+  
+  return merged;
+}
+
+/**
  * Get RMS threshold based on VAD sensitivity
  * Higher = less sensitive (filters more noise)
  */
@@ -88,6 +143,16 @@ export interface VoiceSession {
   reconnecting?: boolean;
 }
 
+/**
+ * Track "always listen" mode per user
+ * After wake word detection, user can speak freely without wake word for a period
+ */
+interface AlwaysListenState {
+  userId: string;
+  expiresAt: number;  // Timestamp when always-listen mode expires
+  timer?: ReturnType<typeof setTimeout>;
+}
+
 export class VoiceConnectionManager {
   private sessions: Map<string, VoiceSession> = new Map();
   private config: DiscordVoiceConfig;
@@ -98,6 +163,9 @@ export class VoiceConnectionManager {
   private logger: Logger;
   private onTranscript: (userId: string, guildId: string, channelId: string, text: string) => Promise<string>;
   private botUserId: string | null = null;
+  
+  // Wake word: track users in "always listen" mode
+  private alwaysListenUsers: Map<string, AlwaysListenState> = new Map();
 
   // Heartbeat configuration (can be overridden via config.heartbeatIntervalMs)
   private readonly DEFAULT_HEARTBEAT_INTERVAL_MS = 30_000;  // 30 seconds
@@ -126,6 +194,178 @@ export class VoiceConnectionManager {
   setBotUserId(userId: string): void {
     this.botUserId = userId;
     this.logger.info(`[discord-voice] Bot user ID set to ${userId}`);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WAKE WORD DETECTION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Check if wake word detection is enabled
+   */
+  private isWakeWordEnabled(): boolean {
+    return !!(this.config.wakeWordEnabled && (this.config.wakeWord || this.config.wakeWordAliases?.length));
+  }
+
+  /**
+   * Get all wake word patterns (main + aliases)
+   */
+  private getWakeWordPatterns(): string[] {
+    const patterns: string[] = [];
+    if (this.config.wakeWord) {
+      patterns.push(this.config.wakeWord.toLowerCase());
+    }
+    if (this.config.wakeWordAliases) {
+      patterns.push(...this.config.wakeWordAliases.map(w => w.toLowerCase()));
+    }
+    return patterns;
+  }
+
+  /**
+   * Check if transcript contains wake word
+   * Returns the matched pattern or null if no match
+   */
+  private findWakeWord(transcript: string): string | null {
+    const lowerTranscript = transcript.toLowerCase();
+    const patterns = this.getWakeWordPatterns();
+    
+    for (const pattern of patterns) {
+      if (lowerTranscript.includes(pattern)) {
+        return pattern;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Strip wake word from transcript
+   */
+  private stripWakeWord(transcript: string, pattern: string): string {
+    // Create regex to match the pattern (case-insensitive)
+    const regex = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    return transcript.replace(regex, '').trim();
+  }
+
+  /**
+   * Check if transcript contains an end phrase
+   */
+  private containsEndPhrase(transcript: string): boolean {
+    const lowerTranscript = transcript.toLowerCase();
+    const endPhrases = this.config.endPhrases || [];
+    
+    for (const phrase of endPhrases) {
+      if (lowerTranscript.includes(phrase.toLowerCase())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Check if user is in "always listen" mode
+   */
+  private isAlwaysListening(userId: string): boolean {
+    const state = this.alwaysListenUsers.get(userId);
+    if (!state) return false;
+    
+    // Check if expired
+    if (Date.now() > state.expiresAt) {
+      this.exitAlwaysListenMode(userId);
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Enter "always listen" mode for a user
+   */
+  private enterAlwaysListenMode(userId: string): void {
+    // Clear existing timer if any
+    const existing = this.alwaysListenUsers.get(userId);
+    if (existing?.timer) {
+      clearTimeout(existing.timer);
+    }
+
+    const durationMs = this.config.alwaysListenMs || 30000;
+    const expiresAt = Date.now() + durationMs;
+
+    const timer = setTimeout(() => {
+      this.logger.info(`[discord-voice] Always-listen mode expired for user ${userId}`);
+      this.alwaysListenUsers.delete(userId);
+    }, durationMs);
+
+    this.alwaysListenUsers.set(userId, { userId, expiresAt, timer });
+    this.logger.info(`[discord-voice] Entered always-listen mode for user ${userId} (${durationMs / 1000}s)`);
+  }
+
+  /**
+   * Extend "always listen" mode (called on each valid interaction)
+   */
+  private extendAlwaysListenMode(userId: string): void {
+    if (this.isAlwaysListening(userId)) {
+      this.enterAlwaysListenMode(userId);  // Re-enter to reset timer
+    }
+  }
+
+  /**
+   * Exit "always listen" mode for a user
+   */
+  private exitAlwaysListenMode(userId: string): void {
+    const state = this.alwaysListenUsers.get(userId);
+    if (state?.timer) {
+      clearTimeout(state.timer);
+    }
+    this.alwaysListenUsers.delete(userId);
+    this.logger.info(`[discord-voice] Exited always-listen mode for user ${userId}`);
+  }
+
+  /**
+   * Process transcript through wake word filter
+   * Returns processed transcript or null if should be ignored
+   */
+  private processWakeWord(userId: string, transcript: string): { text: string; shouldRespond: boolean } {
+    // If wake word detection is disabled, always respond
+    if (!this.isWakeWordEnabled()) {
+      return { text: transcript, shouldRespond: true };
+    }
+
+    const lowerTranscript = transcript.toLowerCase();
+
+    // Check for end phrases first
+    if (this.isAlwaysListening(userId) && this.containsEndPhrase(transcript)) {
+      this.exitAlwaysListenMode(userId);
+      // Still process the message (might be "goodbye, thanks for your help")
+      return { text: transcript, shouldRespond: true };
+    }
+
+    // Check if user is in "always listen" mode
+    if (this.isAlwaysListening(userId)) {
+      // Extend the timer on valid interaction
+      this.extendAlwaysListenMode(userId);
+      return { text: transcript, shouldRespond: true };
+    }
+
+    // Check for wake word
+    const matchedPattern = this.findWakeWord(transcript);
+    if (matchedPattern) {
+      // Enter always-listen mode
+      this.enterAlwaysListenMode(userId);
+      
+      // Strip wake word from transcript
+      const strippedText = this.stripWakeWord(transcript, matchedPattern);
+      
+      // If there's nothing left after stripping wake word, just acknowledge
+      if (!strippedText || strippedText.trim().length === 0) {
+        // Return a prompt acknowledgment - the bot should respond naturally
+        return { text: "I'm listening.", shouldRespond: true };
+      }
+      
+      return { text: strippedText, shouldRespond: true };
+    }
+
+    // No wake word and not in always-listen mode - ignore
+    this.logger.debug?.(`[discord-voice] Ignoring transcript (no wake word): "${transcript.substring(0, 50)}..."`);
+    return { text: transcript, shouldRespond: false };
   }
 
   /**
@@ -703,8 +943,10 @@ export class VoiceConnectionManager {
 
   /**
    * Speak text in the voice channel
+   * If chunked mode is enabled (default), splits response into sentences
+   * and starts TTS on the first sentence immediately for lower perceived latency.
    */
-  async speak(guildId: string, text: string): Promise<void> {
+  async speak(guildId: string, text: string, options: { chunked?: boolean } = {}): Promise<void> {
     const session = this.sessions.get(guildId);
     if (!session) {
       throw new Error("Not connected to voice channel");
@@ -716,11 +958,134 @@ export class VoiceConnectionManager {
       throw new Error("TTS provider not initialized");
     }
 
+    // Default to chunked mode for better perceived latency
+    const useChunked = options.chunked ?? this.config.responseChunking ?? true;
+    
+    if (useChunked) {
+      return this.speakChunked(session, text);
+    }
+    
+    return this.speakSingle(session, text);
+  }
+
+  /**
+   * Speak text using sentence chunking for lower perceived latency.
+   * Splits the response into sentences and plays them sequentially,
+   * starting TTS on the first sentence immediately.
+   */
+  private async speakChunked(session: VoiceSession, text: string): Promise<void> {
+    // Split into sentence chunks
+    const rawChunks = chunkBySentence(text);
+    // Merge very short chunks for better flow
+    const chunks = mergeShortChunks(rawChunks, 30);
+    
+    if (chunks.length === 0) {
+      return;
+    }
+    
+    // If only one chunk or very short text, just use single mode
+    if (chunks.length === 1 || text.length < 50) {
+      return this.speakSingle(session, text);
+    }
+    
+    this.logger.info(`[discord-voice] Speaking ${chunks.length} chunks: "${text.substring(0, 50)}${text.length > 50 ? "..." : ""}"`);
+    this.logger.debug?.(`[discord-voice] Chunks: ${JSON.stringify(chunks)}`);
+
     session.speaking = true;
     session.startedSpeakingAt = Date.now();
 
     try {
-      this.logger.info(`[discord-voice] Speaking: "${text.substring(0, 50)}${text.length > 50 ? "..." : ""}"`);
+      // Play chunks sequentially
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        
+        // Check for barge-in between chunks
+        if (!session.speaking) {
+          this.logger.info(`[discord-voice] Barge-in detected between chunks, stopping`);
+          break;
+        }
+        
+        this.logger.debug?.(`[discord-voice] Playing chunk ${i + 1}/${chunks.length}: "${chunk.substring(0, 40)}..."`);
+        
+        await this.speakSingleChunk(session, chunk);
+      }
+    } finally {
+      session.speaking = false;
+      session.lastSpokeAt = Date.now();
+    }
+  }
+
+  /**
+   * Speak a single chunk of text (internal helper for chunked mode)
+   */
+  private async speakSingleChunk(session: VoiceSession, text: string): Promise<void> {
+    let resource;
+
+    // Try streaming TTS first (lower latency)
+    if (this.streamingTTS) {
+      try {
+        const streamResult = await this.streamingTTS.synthesizeStream(text);
+        
+        if (streamResult.format === "opus") {
+          resource = createAudioResource(streamResult.stream, {
+            inputType: StreamType.OggOpus,
+          });
+        } else {
+          resource = createAudioResource(streamResult.stream);
+        }
+      } catch (streamError) {
+        this.logger.warn(`[discord-voice] Streaming TTS failed for chunk, falling back: ${streamError instanceof Error ? streamError.message : String(streamError)}`);
+      }
+    }
+
+    // Fallback to buffered TTS
+    if (!resource && this.ttsProvider) {
+      const ttsResult = await this.ttsProvider.synthesize(text);
+      
+      if (ttsResult.format === "opus") {
+        resource = createAudioResource(Readable.from(ttsResult.audioBuffer), {
+          inputType: StreamType.OggOpus,
+        });
+      } else {
+        resource = createAudioResource(Readable.from(ttsResult.audioBuffer));
+      }
+    }
+
+    if (!resource) {
+      throw new Error("Failed to create audio resource for chunk");
+    }
+
+    session.player.play(resource);
+
+    // Wait for this chunk to finish
+    await new Promise<void>((resolve) => {
+      const onIdle = () => {
+        session.player.off(AudioPlayerStatus.Idle, onIdle);
+        session.player.off("error", onError);
+        resolve();
+      };
+      
+      const onError = (error: Error) => {
+        this.logger.error(`[discord-voice] Chunk playback error: ${error.message}`);
+        session.player.off(AudioPlayerStatus.Idle, onIdle);
+        session.player.off("error", onError);
+        resolve();
+      };
+
+      session.player.on(AudioPlayerStatus.Idle, onIdle);
+      session.player.on("error", onError);
+    });
+  }
+
+  /**
+   * Speak text as a single unit (original behavior)
+   */
+  private async speakSingle(session: VoiceSession, text: string): Promise<void> {
+    session.speaking = true;
+    session.startedSpeakingAt = Date.now();
+
+    try {
+      this.logger.info(`[discord-voice] Speaking (single): "${text.substring(0, 50)}${text.length > 50 ? "..." : ""}"`);
       
       let resource;
 
