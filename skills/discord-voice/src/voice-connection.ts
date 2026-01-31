@@ -605,6 +605,11 @@ export class VoiceConnectionManager {
       }
     }
 
+    // Clear always-listen states for users in this session
+    for (const userId of session.userAudioStates.keys()) {
+      this.exitAlwaysListenMode(userId);
+    }
+
     session.connection.destroy();
     this.sessions.delete(guildId);
     this.logger.info(`[discord-voice] Left voice channel in guild ${guildId}`);
@@ -910,6 +915,21 @@ export class VoiceConnectionManager {
       }
 
       this.logger.info(`[discord-voice] Transcribed: "${transcribedText}"`);
+
+      // ═══════════════════════════════════════════════════════════════
+      // WAKE WORD DETECTION
+      // Check if we should respond based on wake word configuration
+      // ═══════════════════════════════════════════════════════════════
+      const wakeWordResult = this.processWakeWord(userId, transcribedText);
+      if (!wakeWordResult.shouldRespond) {
+        this.logger.debug?.(`[discord-voice] Ignoring transcript - wake word not detected`);
+        session.processing = false;
+        return;
+      }
+      
+      // Use the processed text (wake word stripped if applicable)
+      transcribedText = wakeWordResult.text;
+      this.logger.debug?.(`[discord-voice] Processed transcript: "${transcribedText}"`);
 
       // Play looping thinking sound while processing
       const stopThinking = await this.startThinkingLoop(session);
@@ -1298,6 +1318,14 @@ export class VoiceConnectionManager {
     if (this.streamingSTT) {
       this.streamingSTT.closeAll();
     }
+
+    // Clear all always-listen states
+    for (const [userId, state] of this.alwaysListenUsers) {
+      if (state.timer) {
+        clearTimeout(state.timer);
+      }
+    }
+    this.alwaysListenUsers.clear();
 
     const guildIds = Array.from(this.sessions.keys());
     for (const guildId of guildIds) {

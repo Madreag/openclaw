@@ -13,6 +13,7 @@ Real-time voice conversations in Discord voice channels. Join a voice channel, s
 - **Audio Playback**: Responses are spoken back in the voice channel
 - **Barge-in Support**: Stops speaking immediately when user starts talking
 - **Auto-reconnect**: Automatic heartbeat monitoring and reconnection on disconnect
+- **Wake Word Detection**: Optional "Hey Veronica" style activation (responds only when wake word is spoken)
 
 ## Requirements
 
@@ -95,6 +96,11 @@ Add these to your bot's OAuth2 URL or configure in Discord Developer Portal.
 | `maxRecordingMs` | number | `30000` | Max recording length (ms) |
 | `heartbeatIntervalMs` | number | `30000` | Connection health check interval |
 | `autoJoinChannel` | string | `undefined` | Channel ID to auto-join on startup |
+| `wakeWordEnabled` | boolean | `false` | Enable wake word detection |
+| `wakeWord` | string | `undefined` | Wake word phrase (e.g., "hey veronica") |
+| `wakeWordAliases` | string[] | `undefined` | Alternative spellings (e.g., ["hey veronika"]) |
+| `alwaysListenMs` | number | `30000` | Duration of "always listen" mode after wake word |
+| `endPhrases` | string[] | `["goodbye", ...]` | Phrases that end "always listen" mode |
 
 ### Provider Configuration
 
@@ -193,6 +199,69 @@ To use streaming STT:
     "apiKey": "...",
     "model": "nova-2"
   }
+}
+```
+
+## Wake Word Detection
+
+When enabled, the bot only responds to speech that starts with a wake word (like "Hey Veronica"). This prevents the bot from responding to every conversation in the voice channel.
+
+### Basic Setup
+
+```json5
+{
+  "wakeWordEnabled": true,
+  "wakeWord": "hey veronica",
+  "wakeWordAliases": ["hey veronika", "a veronica", "hey verona"]  // Common misheard variations
+}
+```
+
+### How It Works
+
+1. **Wake Word Detected**: User says "Hey Veronica, what's the weather?"
+2. **Always Listen Mode**: Bot enters 30-second window of active listening
+3. **Continuous Conversation**: During this window, user can speak without wake word
+4. **Auto Exit**: Mode expires after 30 seconds of silence
+5. **Manual Exit**: Say "goodbye", "that's all", or other end phrases to exit immediately
+
+### Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `wakeWordEnabled` | boolean | `false` | Enable wake word detection |
+| `wakeWord` | string | - | Primary wake word (e.g., "hey veronica") |
+| `wakeWordAliases` | string[] | - | Alternative spellings/misheard versions |
+| `alwaysListenMs` | number | `30000` | Duration of continuous listening (ms) |
+| `endPhrases` | string[] | `["goodbye", ...]` | Phrases that end listening mode |
+
+### Tips
+
+- **Add aliases** for common transcription errors (e.g., "veronika", "verona")
+- **Short wake words** are more likely to be misheard; use 2-3 syllables
+- **End phrases** should be distinct from normal conversation
+- The wake word is **stripped** from the transcript before processing
+
+### Example Configuration
+
+```json5
+{
+  "wakeWordEnabled": true,
+  "wakeWord": "hey veronica",
+  "wakeWordAliases": [
+    "hey veronika",
+    "a veronica", 
+    "hey verona",
+    "veronica"
+  ],
+  "alwaysListenMs": 45000,  // 45 seconds of active listening
+  "endPhrases": [
+    "goodbye",
+    "that's all",
+    "bye",
+    "bye bye",
+    "see you",
+    "thanks veronica"
+  ]
 }
 ```
 
