@@ -24,6 +24,13 @@ export interface DiscordVoiceConfig {
   autoJoinChannel?: string; // Channel ID to auto-join on startup
   heartbeatIntervalMs?: number;  // Connection health check interval
   
+  // Wake word detection - bot only responds when wake word is detected
+  wakeWordEnabled?: boolean;  // Enable wake word detection
+  wakeWord?: string;          // e.g. "hey veronica", "veronica"
+  wakeWordAliases?: string[]; // Alternative spellings: ["hey veronica", "hey veronika", "a veronica"]
+  alwaysListenMs?: number;    // Stay active for this many ms after wake word (default: 30000)
+  endPhrases?: string[];      // Phrases that end "always listen" mode: ["goodbye", "that's all", "bye"]
+  
   // LLM settings for voice responses (use fast models for low latency)
   model?: string;         // e.g. "anthropic/claude-3-5-haiku-latest" or "openai/gpt-4o-mini"
   thinkLevel?: string;    // "off", "low", "medium", "high" - lower = faster
@@ -53,7 +60,7 @@ export const DEFAULT_CONFIG: DiscordVoiceConfig = {
   vadSensitivity: "medium",
   bargeIn: true,            // Enable barge-in by default
   allowedUsers: [],
-  silenceThresholdMs: 1000, // 1 second - faster response after speech ends
+  silenceThresholdMs: 500, // 500ms - faster response after speech ends
   minAudioMs: 300,          // 300ms minimum - filter very short noise
   maxRecordingMs: 30000,
   heartbeatIntervalMs: 30000,

@@ -308,6 +308,59 @@ DEBUG=discord-voice clawdbot gateway start
 | `ELEVENLABS_API_KEY` | ElevenLabs API key |
 | `DEEPGRAM_API_KEY` | Deepgram API key |
 
+## Recommended Settings for Lowest Latency
+
+For the fastest voice response times, use this configuration:
+
+```json5
+{
+  "discord-voice": {
+    "enabled": true,
+    "config": {
+      // STT: Use Deepgram streaming for ~1s faster transcription
+      "sttProvider": "deepgram",
+      "streamingSTT": true,
+      
+      // TTS: ElevenLabs with turbo model
+      "ttsProvider": "elevenlabs",
+      "ttsVoice": "Alice",  // or your preferred voice ID
+      
+      // Fast response settings
+      "silenceThresholdMs": 500,   // Respond quickly after speech ends
+      "minAudioMs": 300,           // Filter very short noise
+      "bargeIn": true,             // Allow interruption
+      
+      // Fast LLM settings
+      "model": "anthropic/claude-3-5-haiku-latest",  // Fastest Claude model
+      "thinkLevel": "off",         // Disable extended thinking for speed
+      
+      // Provider configs
+      "deepgram": {
+        "model": "nova-2"  // Fast, accurate
+      },
+      "elevenlabs": {
+        "modelId": "eleven_turbo_v2_5"  // Turbo = lower latency
+        // optimize_streaming_latency: 4 is set internally (max)
+      }
+    }
+  }
+}
+```
+
+### Latency Breakdown (optimized config)
+| Stage | Typical Latency |
+|-------|-----------------|
+| Silence detection | 500ms |
+| STT (Deepgram streaming) | ~300ms |
+| LLM (Haiku) | ~500-800ms |
+| TTS (ElevenLabs turbo) | ~200ms first chunk |
+| **Total** | **~1.5-2s** |
+
+### Assets
+
+The plugin includes audio assets in the `assets/` folder:
+- `thinking.mp3` - Short chime to indicate processing (can be played while waiting for response)
+
 ## Limitations
 
 - Only one voice channel per guild at a time

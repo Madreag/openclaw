@@ -130,7 +130,7 @@ export class ElevenLabsStreamingTTS implements StreamingTTSProvider {
             stability: 0.5,
             similarity_boost: 0.75,
           },
-          optimize_streaming_latency: 3, // 0-4, higher = lower latency but quality tradeoff
+          optimize_streaming_latency: 4, // 0-4, higher = lower latency but quality tradeoff (max for voice)
         }),
       }
     );
