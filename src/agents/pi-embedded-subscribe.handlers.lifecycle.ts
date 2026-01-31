@@ -12,6 +12,8 @@ export function handleAgentStart(ctx: EmbeddedPiSubscribeContext) {
     data: {
       phase: "start",
       startedAt: Date.now(),
+      model: ctx.params.model,
+      provider: ctx.params.provider,
     },
   });
   void ctx.params.onAgentEvent?.({

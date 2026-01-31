@@ -8,6 +8,10 @@ export type ToolResultFormat = "markdown" | "plain";
 export type SubscribeEmbeddedPiSessionParams = {
   session: AgentSession;
   runId: string;
+  /** Model identifier (e.g., "claude-opus-4") for lifecycle events. */
+  model?: string;
+  /** Provider identifier (e.g., "anthropic") for lifecycle events. */
+  provider?: string;
   verboseLevel?: VerboseLevel;
   reasoningMode?: ReasoningLevel;
   toolResultFormat?: ToolResultFormat;
