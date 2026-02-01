@@ -137,6 +137,16 @@ export function createSessionActions(context: SessionActionContext) {
           updatedAt: entry?.updatedAt ?? null,
           displayName: entry?.displayName,
         };
+        // Auto-enable showThinking when reasoning mode is on or stream
+        // This ensures thinking content is visible during extended thinking phases
+        // Only auto-enable if user hasn't explicitly toggled it off via Ctrl+T
+        const reasoningLevel = entry?.reasoningLevel;
+        if (
+          (reasoningLevel === "on" || reasoningLevel === "stream") &&
+          state.showThinkingUserOverride !== false
+        ) {
+          state.showThinking = true;
+        }
       } catch (err) {
         chatLog.addSystem(`sessions list failed: ${String(err)}`);
       }

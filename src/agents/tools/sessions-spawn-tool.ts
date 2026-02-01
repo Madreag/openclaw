@@ -186,6 +186,15 @@ export function createSessionsSpawnTool(opts?: {
           });
         }
         thinkingOverride = normalized;
+      } else {
+        // Fall back to subagent thinkingDefault, then global thinkingDefault
+        const subagentThinkingDefault =
+          targetAgentConfig?.subagents?.thinkingDefault ??
+          cfg.agents?.defaults?.subagents?.thinkingDefault ??
+          cfg.agents?.defaults?.thinkingDefault;
+        if (subagentThinkingDefault) {
+          thinkingOverride = normalizeThinkLevel(subagentThinkingDefault) ?? undefined;
+        }
       }
       if (resolvedModel) {
         try {

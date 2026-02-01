@@ -13,7 +13,9 @@ describe("TuiStreamAssembler", () => {
       },
       true,
     );
-    expect(first).toBe("Hello");
+    expect(first.displayText).toBe("Hello");
+    expect(first.isThinking).toBe(false);
+    expect(first.hasContent).toBe(true);
 
     const second = assembler.ingestDelta(
       "run-1",
@@ -23,12 +25,14 @@ describe("TuiStreamAssembler", () => {
       },
       true,
     );
-    expect(second).toBe("[thinking]\nBrain\n\nHello");
+    expect(second.displayText).toBe("[thinking]\nBrain\n\nHello");
+    expect(second.isThinking).toBe(false);
+    expect(second.hasContent).toBe(true);
   });
 
   it("omits thinking when showThinking is false", () => {
     const assembler = new TuiStreamAssembler();
-    const text = assembler.ingestDelta(
+    const result = assembler.ingestDelta(
       "run-2",
       {
         role: "assistant",
@@ -40,7 +44,25 @@ describe("TuiStreamAssembler", () => {
       false,
     );
 
-    expect(text).toBe("Visible");
+    expect(result.displayText).toBe("Visible");
+    expect(result.isThinking).toBe(false);
+    expect(result.hasContent).toBe(true);
+  });
+
+  it("detects thinking phase when only thinking content exists", () => {
+    const assembler = new TuiStreamAssembler();
+    const result = assembler.ingestDelta(
+      "run-thinking",
+      {
+        role: "assistant",
+        content: [{ type: "thinking", thinking: "Pondering..." }],
+      },
+      true,
+    );
+
+    expect(result.displayText).toBe("[thinking]\nPondering...");
+    expect(result.isThinking).toBe(true);
+    expect(result.hasContent).toBe(false);
   });
 
   it("falls back to streamed text on empty final payload", () => {
@@ -66,7 +88,7 @@ describe("TuiStreamAssembler", () => {
     expect(finalText).toBe("Streamed");
   });
 
-  it("returns null when delta text is unchanged", () => {
+  it("returns null displayText when delta text is unchanged", () => {
     const assembler = new TuiStreamAssembler();
     const first = assembler.ingestDelta(
       "run-4",
@@ -77,7 +99,7 @@ describe("TuiStreamAssembler", () => {
       false,
     );
 
-    expect(first).toBe("Repeat");
+    expect(first.displayText).toBe("Repeat");
 
     const second = assembler.ingestDelta(
       "run-4",
@@ -88,6 +110,7 @@ describe("TuiStreamAssembler", () => {
       false,
     );
 
-    expect(second).toBeNull();
+    expect(second.displayText).toBeNull();
+    expect(second.hasContent).toBe(true);
   });
 });

@@ -71,3 +71,10 @@ USER.md
 
 # local tooling
 .serena/
+.erol/
+
+# backups and local data
+*.backup*/
+workspace.backup*/
+*.sqlite
+*.db

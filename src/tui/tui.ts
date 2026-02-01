@@ -95,6 +95,7 @@ export async function runTui(opts: TuiOptions) {
   let wasDisconnected = false;
   let toolsExpanded = false;
   let showThinking = false;
+  let showThinkingUserOverride: boolean | null = null;
 
   const deliverDefault = opts.deliver ?? false;
   const autoMessage = opts.message?.trim();
@@ -198,6 +199,12 @@ export async function runTui(opts: TuiOptions) {
     },
     set showThinking(value) {
       showThinking = value;
+    },
+    get showThinkingUserOverride() {
+      return showThinkingUserOverride;
+    },
+    set showThinkingUserOverride(value) {
+      showThinkingUserOverride = value;
     },
     get connectionStatus() {
       return connectionStatus;
@@ -305,7 +312,7 @@ export async function runTui(opts: TuiOptions) {
     );
   };
 
-  const busyStates = new Set(["sending", "waiting", "streaming", "running"]);
+  const busyStates = new Set(["sending", "waiting", "streaming", "running", "thinking"]);
   let statusText: Text | null = null;
   let statusLoader: Loader | null = null;
 
@@ -609,6 +616,8 @@ export async function runTui(opts: TuiOptions) {
   };
   editor.onCtrlT = () => {
     showThinking = !showThinking;
+    // Track that user explicitly toggled this preference
+    showThinkingUserOverride = showThinking;
     void loadHistory();
   };
 
@@ -660,6 +669,8 @@ export async function runTui(opts: TuiOptions) {
   updateHeader();
   setConnectionStatus("connecting");
   updateFooter();
+  // Force initial layout calculation before starting to avoid rendering glitches
+  tui.requestRender();
   tui.start();
   client.start();
 }

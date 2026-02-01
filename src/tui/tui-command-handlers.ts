@@ -213,6 +213,8 @@ export function createCommandHandlers(context: CommandHandlerContext) {
         }
         if (id === "thinking") {
           state.showThinking = value === "on";
+          // Track that user explicitly toggled this preference (same as Ctrl+T)
+          state.showThinkingUserOverride = state.showThinking;
           void loadHistory();
         }
         tui.requestRender();

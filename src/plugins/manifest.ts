@@ -1,11 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { MANIFEST_KEY } from "../compat/legacy-names.js";
+import { LEGACY_PLUGIN_MANIFEST_FILENAMES, MANIFEST_KEY } from "../compat/legacy-names.js";
 import type { PluginConfigUiHint, PluginKind } from "./types.js";
 
 export const PLUGIN_MANIFEST_FILENAME = "openclaw.plugin.json";
-export const PLUGIN_MANIFEST_FILENAMES = [PLUGIN_MANIFEST_FILENAME] as const;
+export const PLUGIN_MANIFEST_FILENAMES = [
+  PLUGIN_MANIFEST_FILENAME,
+  ...LEGACY_PLUGIN_MANIFEST_FILENAMES,
+] as const;
 
 export type PluginManifest = {
   id: string;

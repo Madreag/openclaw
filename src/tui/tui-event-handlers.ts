@@ -86,12 +86,20 @@ export function createEventHandlers(context: EventHandlerContext) {
       state.activeChatRunId = evt.runId;
     }
     if (evt.state === "delta") {
-      const displayText = streamAssembler.ingestDelta(evt.runId, evt.message, state.showThinking);
-      if (!displayText) {
+      const result = streamAssembler.ingestDelta(evt.runId, evt.message, state.showThinking);
+      if (result.displayText) {
+        chatLog.updateAssistant(result.displayText, evt.runId);
+      }
+      // Show "thinking" status during extended thinking phase (thinking content but no text yet)
+      // Switch to "streaming" once actual text content starts arriving
+      if (result.isThinking) {
+        setActivityStatus("thinking");
+      } else if (result.hasContent) {
+        setActivityStatus("streaming");
+      }
+      if (!result.displayText) {
         return;
       }
-      chatLog.updateAssistant(displayText, evt.runId);
-      setActivityStatus("streaming");
     }
     if (evt.state === "final") {
       if (isCommandMessage(evt.message)) {

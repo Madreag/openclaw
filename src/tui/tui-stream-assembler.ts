@@ -11,6 +11,12 @@ type RunStreamState = {
   displayText: string;
 };
 
+export type IngestResult = {
+  displayText: string | null;
+  isThinking: boolean;
+  hasContent: boolean;
+};
+
 export class TuiStreamAssembler {
   private runs = new Map<string, RunStreamState>();
 
@@ -47,16 +53,20 @@ export class TuiStreamAssembler {
     state.displayText = displayText;
   }
 
-  ingestDelta(runId: string, message: unknown, showThinking: boolean): string | null {
+  ingestDelta(runId: string, message: unknown, showThinking: boolean): IngestResult {
     const state = this.getOrCreateRun(runId);
     const previousDisplayText = state.displayText;
     this.updateRunState(state, message, showThinking);
 
+    const hasThinking = Boolean(state.thinkingText);
+    const hasContent = Boolean(state.contentText);
+    const isThinking = hasThinking && !hasContent;
+
     if (!state.displayText || state.displayText === previousDisplayText) {
-      return null;
+      return { displayText: null, isThinking, hasContent };
     }
 
-    return state.displayText;
+    return { displayText: state.displayText, isThinking, hasContent };
   }
 
   finalize(runId: string, message: unknown, showThinking: boolean): string {

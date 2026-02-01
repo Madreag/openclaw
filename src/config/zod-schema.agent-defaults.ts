@@ -113,6 +113,7 @@ export const AgentDefaultsSchema = z
         z.literal("xhigh"),
       ])
       .optional(),
+    reasoningDefault: z.union([z.literal("off"), z.literal("on"), z.literal("stream")]).optional(),
     verboseDefault: z.union([z.literal("off"), z.literal("on"), z.literal("full")]).optional(),
     elevatedDefault: z
       .union([z.literal("off"), z.literal("on"), z.literal("ask"), z.literal("full")])
@@ -148,6 +149,16 @@ export const AgentDefaultsSchema = z
                 fallbacks: z.array(z.string()).optional(),
               })
               .strict(),
+          ])
+          .optional(),
+        thinkingDefault: z
+          .union([
+            z.literal("off"),
+            z.literal("minimal"),
+            z.literal("low"),
+            z.literal("medium"),
+            z.literal("high"),
+            z.literal("xhigh"),
           ])
           .optional(),
       })
