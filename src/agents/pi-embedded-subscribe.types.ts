@@ -12,6 +12,19 @@ export type SubscribeEmbeddedPiSessionParams = {
   model?: string;
   /** Provider identifier (e.g., "anthropic") for lifecycle events. */
   provider?: string;
+  agentId?: string; // e.g., "main", "research", "code-review"
+  agentName?: string; // Human-readable name from agent config
+  spawnedBy?: string | null; // Parent session key for sub-agents
+  /** The message/prompt that triggered this agent run (for dashboard context). */
+  triggerMessage?: string;
+  /** Spawn label for subagents (human-readable task description). */
+  label?: string;
+  /** Channel type (discord, telegram, etc.) */
+  channel?: string;
+  /** Channel/chat name for context. */
+  channelName?: string;
+  /** User who triggered this run. */
+  userName?: string;
   verboseLevel?: VerboseLevel;
   reasoningMode?: ReasoningLevel;
   toolResultFormat?: ToolResultFormat;

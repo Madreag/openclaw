@@ -39,7 +39,11 @@ import {
 } from "../../auto-reply/thinking.js";
 import { createOutboundSendDeps, type CliDeps } from "../../cli/outbound-send-deps.js";
 import type { OpenClawConfig } from "../../config/config.js";
-import { resolveSessionTranscriptPath, updateSessionStore } from "../../config/sessions.js";
+import {
+  resolveAgentIdFromSessionKey,
+  resolveSessionTranscriptPath,
+  updateSessionStore,
+} from "../../config/sessions.js";
 import type { AgentDefaultsConfig } from "../../config/types.js";
 import { registerAgentRunContext } from "../../infra/agent-events.js";
 import { deliverOutboundPayloads } from "../../infra/outbound/deliver.js";
@@ -356,9 +360,13 @@ export async function runCronIsolatedAgentTurn(params: {
             cliSessionId,
           });
         }
+        const agentId = resolveAgentIdFromSessionKey(agentSessionKey);
+        const agentConfig = cfgWithAgentDefaults?.agents?.list?.find((a) => a.id === agentId);
         return runEmbeddedPiAgent({
           sessionId: cronSession.sessionEntry.sessionId,
           sessionKey: agentSessionKey,
+          agentId,
+          agentName: agentConfig?.name,
           messageChannel,
           agentAccountId: resolvedDelivery.accountId,
           sessionFile,

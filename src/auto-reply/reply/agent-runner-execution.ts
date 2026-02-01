@@ -162,12 +162,32 @@ export async function runAgentTurnWithFallback(params: {
 
           if (isCliProvider(provider, params.followupRun.run.config)) {
             const startedAt = Date.now();
+            const cliAgentId = resolveAgentIdFromSessionKey(params.sessionKey);
+            const cliAgentConfig = params.followupRun.run.config?.agents?.list?.find(
+              (a) => a.id === cliAgentId,
+            );
+            // Truncate triggerMessage for dashboard events (keep it reasonable)
+            const triggerMessage =
+              params.commandBody.length > 500
+                ? params.commandBody.slice(0, 500) + "..."
+                : params.commandBody;
             emitAgentEvent({
               runId,
               stream: "lifecycle",
               data: {
                 phase: "start",
                 startedAt,
+                agentId: cliAgentId,
+                agentName: cliAgentConfig?.name,
+                spawnedBy: params.getActiveSessionEntry()?.spawnedBy,
+                // Dashboard context fields
+                triggerMessage,
+                channel: params.sessionCtx.Provider?.trim().toLowerCase() || undefined,
+                channelName:
+                  params.sessionCtx.GroupChannel?.trim() ||
+                  params.sessionCtx.GroupSubject?.trim() ||
+                  undefined,
+                userName: params.sessionCtx.SenderName?.trim() || undefined,
               },
             });
             const cliSessionId = getCliSessionId(params.getActiveSessionEntry(), provider);
@@ -229,9 +249,15 @@ export async function runAgentTurnWithFallback(params: {
             provider === params.followupRun.run.provider
               ? params.followupRun.run.authProfileId
               : undefined;
+          const agentId = resolveAgentIdFromSessionKey(params.sessionKey);
+          const agentConfig = params.followupRun.run.config?.agents?.list?.find(
+            (a) => a.id === agentId,
+          );
           return runEmbeddedPiAgent({
             sessionId: params.followupRun.run.sessionId,
             sessionKey: params.sessionKey,
+            agentId,
+            agentName: agentConfig?.name,
             messageProvider: params.sessionCtx.Provider?.trim().toLowerCase() || undefined,
             agentAccountId: params.sessionCtx.AccountId,
             messageTo: params.sessionCtx.OriginatingTo ?? params.sessionCtx.To,

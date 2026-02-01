@@ -15,6 +15,8 @@ import type { ClientToolDefinition } from "./params.js";
 export type EmbeddedRunAttemptParams = {
   sessionId: string;
   sessionKey?: string;
+  agentId?: string; // e.g., "main", "research", "code-review"
+  agentName?: string; // Human-readable name from agent config
   messageChannel?: string;
   messageProvider?: string;
   agentAccountId?: string;
@@ -28,6 +30,12 @@ export type EmbeddedRunAttemptParams = {
   groupSpace?: string | null;
   /** Parent session key for subagent policy inheritance. */
   spawnedBy?: string | null;
+  /** The message/prompt that triggered this agent run (for dashboard context). */
+  triggerMessage?: string;
+  /** Spawn label for subagents (human-readable task description). */
+  label?: string;
+  /** Channel/chat name for context. */
+  channelName?: string;
   senderId?: string | null;
   senderName?: string | null;
   senderUsername?: string | null;

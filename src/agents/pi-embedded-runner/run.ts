@@ -325,6 +325,9 @@ export async function runEmbeddedPiAgent(
             groupChannel: params.groupChannel,
             groupSpace: params.groupSpace,
             spawnedBy: params.spawnedBy,
+            // Dashboard context: use prompt as trigger message (truncated for events)
+            triggerMessage: prompt.length > 500 ? prompt.slice(0, 500) + "..." : prompt,
+            channelName: params.groupChannel || params.groupSpace || undefined,
             currentChannelId: params.currentChannelId,
             currentThreadTs: params.currentThreadTs,
             replyToMode: params.replyToMode,

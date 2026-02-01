@@ -14,6 +14,15 @@ export function handleAgentStart(ctx: EmbeddedPiSubscribeContext) {
       startedAt: Date.now(),
       model: ctx.params.model,
       provider: ctx.params.provider,
+      agentId: ctx.params.agentId,
+      agentName: ctx.params.agentName,
+      spawnedBy: ctx.params.spawnedBy,
+      // Dashboard context fields
+      triggerMessage: ctx.params.triggerMessage,
+      label: ctx.params.label,
+      channel: ctx.params.channel,
+      channelName: ctx.params.channelName,
+      userName: ctx.params.userName,
     },
   });
   void ctx.params.onAgentEvent?.({
@@ -70,6 +79,18 @@ export function handleAgentEnd(ctx: EmbeddedPiSubscribeContext) {
       ? ctx.state.assistantTexts.join("\n").slice(0, 200)
       : undefined;
 
+  // Build usage summary from accumulated usage
+  const usage = ctx.state.accumulatedUsage;
+  const usageSummary = usage
+    ? {
+        inputTokens: usage.input ?? 0,
+        outputTokens: usage.output ?? 0,
+        totalTokens: (usage.input ?? 0) + (usage.output ?? 0),
+        cacheReadTokens: usage.cacheRead,
+        cacheWriteTokens: usage.cacheWrite,
+      }
+    : undefined;
+
   emitAgentEvent({
     runId: ctx.params.runId,
     stream: "lifecycle",
@@ -77,6 +98,7 @@ export function handleAgentEnd(ctx: EmbeddedPiSubscribeContext) {
       phase: "end",
       endedAt: Date.now(),
       responsePreview,
+      usage: usageSummary,
     },
   });
   void ctx.params.onAgentEvent?.({

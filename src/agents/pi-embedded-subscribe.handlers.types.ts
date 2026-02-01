@@ -1,6 +1,7 @@
 import type { AgentEvent, AgentMessage } from "@mariozechner/pi-agent-core";
 
 import type { ReasoningLevel } from "../auto-reply/thinking.js";
+import type { NormalizedUsage } from "./usage.js";
 import type { ReplyDirectiveParseResult } from "../auto-reply/reply/reply-directives.js";
 import type { InlineCodeState } from "../markdown/code-spans.js";
 import type { EmbeddedBlockChunker } from "./pi-embedded-block-chunker.js";
@@ -60,6 +61,9 @@ export type EmbeddedPiSubscribeState = {
   messagingToolSentTargets: MessagingToolSend[];
   pendingMessagingTexts: Map<string, string>;
   pendingMessagingTargets: Map<string, MessagingToolSend>;
+
+  /** Accumulated token usage across all messages in this run. */
+  accumulatedUsage?: NormalizedUsage;
 };
 
 export type EmbeddedPiSubscribeContext = {

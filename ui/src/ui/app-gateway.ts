@@ -144,7 +144,9 @@ export function connectGateway(host: GatewayHost) {
     },
     onEvent: (evt) => handleGatewayEvent(host, evt),
     onGap: ({ expected, received }) => {
-      host.lastError = `event gap detected (expected seq ${expected}, got ${received}); refresh recommended`;
+      console.warn(`[gateway] event gap detected (expected seq ${expected}, got ${received}); auto-reconnecting`);
+      host.client?.stop();
+      connectGateway(host);
     },
   });
   host.client.start();
