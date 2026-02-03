@@ -1,5 +1,4 @@
 import { z } from "zod";
-
 import { parseDurationMs } from "../cli/parse-duration.js";
 import {
   GroupChatSchema,
@@ -447,7 +446,7 @@ export const AgentEntrySchema = z
               .strict(),
           ])
           .optional(),
-        thinkingDefault: z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]).optional(),
+        thinking: z.string().optional(),
       })
       .strict()
       .optional(),
