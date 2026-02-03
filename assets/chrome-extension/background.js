@@ -23,6 +23,9 @@ const tabBySession = new Map()
 /** @type {Map<string, number>} */
 const childSessionToTab = new Map()
 
+/** @type {Set<number>} Tabs that should auto-reattach after navigation */
+const autoReattachTabs = new Set()
+
 /** @type {Map<number, {resolve:(v:any)=>void, reject:(e:Error)=>void}>} */
 const pending = new Map()
 
@@ -209,7 +212,8 @@ function getTabByTargetId(targetId) {
 async function attachTab(tabId, opts = {}) {
   const debuggee = { tabId }
   await chrome.debugger.attach(debuggee, '1.3')
-  await chrome.debugger.sendCommand(debuggee, 'Page.enable').catch(() => {})
+  // Page.enable removed - was causing pages to switch to light mode
+  // await chrome.debugger.sendCommand(debuggee, 'Page.enable').catch(() => {})
 
   const info = /** @type {any} */ (await chrome.debugger.sendCommand(debuggee, 'Target.getTargetInfo'))
   const targetInfo = info?.targetInfo
@@ -223,6 +227,7 @@ async function attachTab(tabId, opts = {}) {
 
   tabs.set(tabId, { state: 'connected', sessionId, targetId, attachOrder })
   tabBySession.set(sessionId, tabId)
+  autoReattachTabs.add(tabId) // Enable auto-reattach on navigation
   void chrome.action.setTitle({
     tabId,
     title: 'OpenClaw Browser Relay: attached (click to detach)',
@@ -247,6 +252,7 @@ async function attachTab(tabId, opts = {}) {
 }
 
 async function detachTab(tabId, reason) {
+  autoReattachTabs.delete(tabId) // Disable auto-reattach when explicitly detaching
   const tab = tabs.get(tabId)
   if (tab?.sessionId && tab?.targetId) {
     try {
@@ -427,8 +433,33 @@ function onDebuggerDetach(source, reason) {
   const tabId = source.tabId
   if (!tabId) return
   if (!tabs.has(tabId)) return
+  
+  // Only fully detach if user canceled or tab truly closed
+  if (reason === 'canceled_by_user') {
+    autoReattachTabs.delete(tabId)
+    void detachTab(tabId, reason)
+    return
+  }
+  
+  // For target_closed (navigation), keep in autoReattach but clear internal state
+  if (autoReattachTabs.has(tabId)) {
+    const tab = tabs.get(tabId)
+    if (tab?.sessionId) tabBySession.delete(tab.sessionId)
+    tabs.delete(tabId)
+    // Don't change badge - leave it as is, onUpdated will restore
+    return
+  }
+  
   void detachTab(tabId, reason)
 }
+
+// Always keep badge ON for tabs in autoReattach set
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (autoReattachTabs.has(tabId)) {
+    // Always show ON badge for attached tabs
+    setBadge(tabId, 'on')
+  }
+})
 
 chrome.action.onClicked.addListener(() => void connectOrToggleForActiveTab())
 

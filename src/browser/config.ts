@@ -119,36 +119,6 @@ function ensureDefaultProfile(
   return result;
 }
 
-/**
- * Ensure a built-in "chrome" profile exists for the Chrome extension relay.
- *
- * Note: this is an OpenClaw browser profile (routing config), not a Chrome user profile.
- * It points at the local relay CDP endpoint (controlPort + 1).
- */
-function ensureDefaultChromeExtensionProfile(
-  profiles: Record<string, BrowserProfileConfig>,
-  controlPort: number,
-): Record<string, BrowserProfileConfig> {
-  const result = { ...profiles };
-  if (result.chrome) {
-    return result;
-  }
-  const relayPort = controlPort + 1;
-  if (!Number.isFinite(relayPort) || relayPort <= 0 || relayPort > 65535) {
-    return result;
-  }
-  // Avoid adding the built-in profile if the derived relay port is already used by another profile
-  // (legacy single-profile configs may use controlPort+1 for openclaw/openclaw CDP).
-  if (getUsedPorts(result).has(relayPort)) {
-    return result;
-  }
-  result.chrome = {
-    driver: "extension",
-    cdpUrl: `http://127.0.0.1:${relayPort}`,
-    color: "#00AA00",
-  };
-  return result;
-}
 export function resolveBrowserConfig(
   cfg: BrowserConfig | undefined,
   rootConfig?: OpenClawConfig,
@@ -199,9 +169,11 @@ export function resolveBrowserConfig(
   const defaultProfileFromConfig = cfg?.defaultProfile?.trim() || undefined;
   // Use legacy cdpUrl port for backward compatibility when no profiles configured
   const legacyCdpPort = rawCdpUrl ? cdpInfo.port : undefined;
-  const profiles = ensureDefaultChromeExtensionProfile(
-    ensureDefaultProfile(cfg?.profiles, defaultColor, legacyCdpPort, derivedCdpRange.start),
-    controlPort,
+  const profiles = ensureDefaultProfile(
+    cfg?.profiles,
+    defaultColor,
+    legacyCdpPort,
+    derivedCdpRange.start,
   );
   const cdpProtocol = cdpInfo.parsed.protocol === "https:" ? "https" : "http";
   const defaultProfile =
