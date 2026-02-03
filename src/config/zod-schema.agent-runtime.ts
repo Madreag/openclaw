@@ -446,7 +446,7 @@ export const AgentEntrySchema = z
               .strict(),
           ])
           .optional(),
-        thinking: z.string().optional(),
+        thinkingDefault: z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]).optional(),
       })
       .strict()
       .optional(),
