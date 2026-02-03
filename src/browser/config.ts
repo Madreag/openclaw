@@ -40,6 +40,8 @@ export type ResolvedBrowserProfile = {
   cdpIsLoopback: boolean;
   color: string;
   driver: "openclaw" | "extension";
+  /** Skip port ownership check - for proxied/external CDP connections */
+  externalCdp: boolean;
 };
 
 function isLoopbackHost(host: string) {
@@ -265,6 +267,7 @@ export function resolveProfile(
     cdpIsLoopback: isLoopbackHost(cdpHost),
     color: profile.color,
     driver,
+    externalCdp: profile.externalCdp ?? false,
   };
 }
 

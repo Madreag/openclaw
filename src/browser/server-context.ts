@@ -332,7 +332,8 @@ function createProfileContext(
     }
 
     // HTTP responds but WebSocket fails - port in use by something else
-    if (!profileState.running) {
+    // Skip ownership check for externalCdp profiles (e.g., proxied connections)
+    if (!profileState.running && !profile.externalCdp) {
       throw new Error(
         `Port ${profile.cdpPort} is in use for profile "${profile.name}" but not by openclaw. ` +
           `Run action=reset-profile profile=${profile.name} to kill the process.`,
@@ -340,7 +341,8 @@ function createProfileContext(
     }
 
     // We own it but WebSocket failed - restart
-    if (current.resolved.attachOnly || remoteCdp) {
+    // For externalCdp profiles, treat like remote (don't try to launch Chrome)
+    if (current.resolved.attachOnly || remoteCdp || profile.externalCdp) {
       if (opts.onEnsureAttachTarget) {
         await opts.onEnsureAttachTarget(profile);
         if (await isReachable(1200)) {
@@ -348,14 +350,16 @@ function createProfileContext(
         }
       }
       throw new Error(
-        remoteCdp
+        remoteCdp || profile.externalCdp
           ? `Remote CDP websocket for profile "${profile.name}" is not reachable.`
           : `Browser attachOnly is enabled and CDP websocket for profile "${profile.name}" is not reachable.`,
       );
     }
 
-    await stopOpenClawChrome(profileState.running);
-    setProfileRunning(null);
+    if (profileState.running) {
+      await stopOpenClawChrome(profileState.running);
+      setProfileRunning(null);
+    }
 
     const relaunched = await launchOpenClawChrome(current.resolved, profile);
     attachRunning(relaunched);

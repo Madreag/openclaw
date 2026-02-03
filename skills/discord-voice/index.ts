@@ -224,7 +224,11 @@ const discordVoicePlugin = {
         const identity = deps.resolveAgentIdentity(coreConfig, agentId);
         const agentName = identity?.name?.trim() || "assistant";
 
-        const extraSystemPrompt = `You are ${agentName}, speaking in a Discord voice channel. Keep responses brief and conversational (1-2 sentences max). Be natural and friendly. You have access to all your normal tools and skills. The user's Discord ID is ${userId}.`;
+        const voiceContext = `You are speaking in a Discord voice channel. This is VOICE, not text — no markdown, no lists, no formatting. The user's Discord ID is ${userId}.`;
+
+        const extraSystemPrompt = cfg.voicePersonality 
+          ? `${cfg.voicePersonality}\n\n${voiceContext}`
+          : `You are ${agentName}, speaking in a Discord voice channel. Keep responses brief and conversational (1-2 sentences). Be natural and friendly. The user's Discord ID is ${userId}.`;
 
         const timeoutMs = deps.resolveAgentTimeoutMs({ cfg: coreConfig });
         const runId = `discord-voice:${guildId}:${Date.now()}`;

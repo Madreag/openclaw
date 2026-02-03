@@ -156,6 +156,7 @@ export const OpenClawSchema = z
                 cdpUrl: z.string().optional(),
                 driver: z.union([z.literal("openclaw"), z.literal("extension")]).optional(),
                 color: HexColorSchema,
+                externalCdp: z.boolean().optional(),
               })
               .strict()
               .refine((value) => value.cdpPort || value.cdpUrl, {

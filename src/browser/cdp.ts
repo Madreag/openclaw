@@ -5,9 +5,11 @@ export { appendCdpPath, fetchJson, fetchOk, getHeadersWithAuth } from "./cdp.hel
 export function normalizeCdpWsUrl(wsUrl: string, cdpUrl: string): string {
   const ws = new URL(wsUrl);
   const cdp = new URL(cdpUrl);
-  if (isLoopbackHost(ws.hostname) && !isLoopbackHost(cdp.hostname)) {
+  // Always rewrite to use cdpUrl's host/port if they differ (handles proxied connections)
+  const cdpPort = cdp.port || (cdp.protocol === "https:" ? "443" : "80");
+  const wsPort = ws.port || (ws.protocol === "wss:" ? "443" : "80");
+  if (ws.hostname !== cdp.hostname || wsPort !== cdpPort) {
     ws.hostname = cdp.hostname;
-    const cdpPort = cdp.port || (cdp.protocol === "https:" ? "443" : "80");
     if (cdpPort) {
       ws.port = cdpPort;
     }

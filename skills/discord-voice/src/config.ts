@@ -35,6 +35,7 @@ export interface DiscordVoiceConfig {
   // LLM settings for voice responses (use fast models for low latency)
   model?: string;         // e.g. "anthropic/claude-3-5-haiku-latest" or "openai/gpt-4o-mini"
   thinkLevel?: string;    // "off", "low", "medium", "high" - lower = faster
+  voicePersonality?: string;  // Custom system prompt for voice conversations
   
   openai?: {
     apiKey?: string;
@@ -142,6 +143,7 @@ export function parseConfig(raw: unknown): DiscordVoiceConfig {
       : DEFAULT_CONFIG.endPhrases,
     model: typeof obj.model === "string" ? obj.model : undefined,
     thinkLevel: typeof obj.thinkLevel === "string" ? obj.thinkLevel : undefined,
+    voicePersonality: typeof obj.voicePersonality === "string" ? obj.voicePersonality : undefined,
     openai: obj.openai && typeof obj.openai === "object"
       ? {
           apiKey: (obj.openai as Record<string, unknown>).apiKey as string | undefined,
