@@ -12,11 +12,13 @@ import {
   type SessionEntry,
   updateSessionStore,
 } from "../../config/sessions.js";
+import { loadSessionCostSummary } from "../../infra/session-cost-usage.js";
 import {
   ErrorCodes,
   errorShape,
   formatValidationErrors,
   validateSessionsCompactParams,
+  validateSessionsCostParams,
   validateSessionsDeleteParams,
   validateSessionsListParams,
   validateSessionsPatchParams,
@@ -465,6 +467,86 @@ export const sessionsHandlers: GatewayRequestHandlers = {
         compacted: true,
         archived,
         kept: keptLines.length,
+      },
+      undefined,
+    );
+  },
+  "sessions.cost": async ({ params, respond }) => {
+    if (!validateSessionsCostParams(params)) {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `invalid sessions.cost params: ${formatValidationErrors(validateSessionsCostParams.errors)}`,
+        ),
+      );
+      return;
+    }
+    const p = params;
+    const key = String(p.key ?? "").trim();
+    if (!key) {
+      respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "key required"));
+      return;
+    }
+
+    const cfg = loadConfig();
+    const target = resolveGatewaySessionStoreTarget({ cfg, key });
+    const { entry } = loadSessionEntry(key);
+
+    if (!entry?.sessionId) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, `session not found: ${key}`),
+      );
+      return;
+    }
+
+    const summary = await loadSessionCostSummary({
+      sessionId: entry.sessionId,
+      sessionEntry: entry,
+      config: cfg,
+    });
+
+    if (!summary) {
+      respond(
+        true,
+        {
+          ok: true,
+          key: target.canonicalKey,
+          sessionId: entry.sessionId,
+          totalCost: 0,
+          breakdown: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+          tokenCounts: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+        },
+        undefined,
+      );
+      return;
+    }
+
+    respond(
+      true,
+      {
+        ok: true,
+        key: target.canonicalKey,
+        sessionId: entry.sessionId,
+        totalCost: summary.totalCost,
+        breakdown: {
+          input: summary.input,
+          output: summary.output,
+          cacheRead: summary.cacheRead,
+          cacheWrite: summary.cacheWrite,
+        },
+        tokenCounts: {
+          input: summary.input,
+          output: summary.output,
+          cacheRead: summary.cacheRead,
+          cacheWrite: summary.cacheWrite,
+          total: summary.totalTokens,
+        },
+        lastActivity: summary.lastActivity,
+        missingCostEntries: summary.missingCostEntries,
       },
       undefined,
     );

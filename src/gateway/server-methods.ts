@@ -64,6 +64,7 @@ const READ_METHODS = new Set([
   "voicewake.get",
   "sessions.list",
   "sessions.preview",
+  "sessions.cost",
   "cron.list",
   "cron.status",
   "cron.runs",

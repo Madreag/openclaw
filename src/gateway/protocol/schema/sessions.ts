@@ -101,3 +101,10 @@ export const SessionsCompactParamsSchema = Type.Object(
   },
   { additionalProperties: false },
 );
+
+export const SessionsCostParamsSchema = Type.Object(
+  {
+    key: NonEmptyString,
+  },
+  { additionalProperties: false },
+);
